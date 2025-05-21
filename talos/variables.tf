@@ -17,7 +17,8 @@ variable "cluster" {
   type = object({
     name            = string
     endpoint        = string
-    gateway         = string
+    public_gateway  = string
+    private_gateway = string
     talos_version   = string
     proxmox_cluster = string
   })
@@ -31,6 +32,7 @@ variable "nodes" {
     datastore_id = optional(string, "global")
     ip            = string
     mac_address   = string
+    secondary_mac_address = optional(string)
     vm_id         = number
     cpu           = number
     ram_dedicated = number

@@ -21,6 +21,7 @@ data "talos_machine_configuration" "this" {
       hostname       = each.key
       node_name      = each.value.host_node
       cluster_name   = var.cluster.proxmox_cluster
+      endpoint       = var.cluster.endpoint
     })
   ] : [
     templatefile("${path.module}/machine-config/worker.yaml.tftpl", {
