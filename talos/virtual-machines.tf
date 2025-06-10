@@ -5,7 +5,7 @@ resource "proxmox_virtual_environment_vm" "this" {
 
   name        = each.key
   description = each.value.machine_type == "controlplane" ? "Talos Control Plane" : "Talos Worker"
-  tags        = each.value.machine_type == "controlplane" ? ["k8s", "control-plane"] : ["k8s", "worker"]
+  tags        = each.value.machine_type == "controlplane" ? ["k8s", "talos", "nebula", "control-plane", "LLA"] : ["k8s", "talos", "nebula", "worker", "LLA"]
   on_boot     = true
   vm_id       = each.value.vm_id
 
@@ -31,6 +31,14 @@ resource "proxmox_virtual_environment_vm" "this" {
     mac_address = each.value.mac_address
   }
 
+  dynamic "network_device" {
+    for_each = each.value.machine_type == "controlplane" ? [1] : []
+    content {
+      bridge      = "vmbr0"
+      mac_address = each.value.secondary_mac_address
+    }
+  }
+
   disk {
     datastore_id = each.value.datastore_id
     interface    = "scsi0"
@@ -49,13 +57,39 @@ resource "proxmox_virtual_environment_vm" "this" {
     type = "l26" # Linux Kernel 2.6 - 6.X.
   }
 
-  initialization {
-    datastore_id = each.value.datastore_id
-    ip_config {
-      ipv4 {
-        address = "${each.value.ip}/24"
-        gateway = var.cluster.gateway
+  dynamic "initialization" {
+    for_each = each.value.machine_type == "controlplane" ? [1] : []
+    content {
+      datastore_id = each.value.datastore_id
+      ip_config {
+        ipv4 {
+          address = "${each.value.ip}/24"
+          gateway = var.cluster.private_gateway
+        }
       }
+      ip_config {
+        ipv4 {
+          address = "${var.cluster.endpoint}/24"
+          gateway = var.cluster.gateway
+        }
+      }
+    }
+  }
+
+  dynamic "initialization" {
+    for_each = each.value.machine_type == "worker" ? [1] : []
+    content {
+      datastore_id = each.value.datastore_id
+      ip_config {
+        ipv4 {
+          address = "${each.value.ip}/24"
+          gateway = var.cluster.private_gateway
+        }
+      }
+      dns {
+      domain = ""
+      servers = ["8.8.8.8"]
+    }
     }
   }
 
