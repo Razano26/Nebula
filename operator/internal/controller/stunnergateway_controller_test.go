@@ -27,10 +27,10 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	cachev1alpha1 "github.com/Razano26/Nebula/api/v1alpha1"
+	ingressv1alpha1 "github.com/Razano26/Nebula/operator/api/v1alpha1"
 )
 
-var _ = Describe("StunnerIngress Controller", func() {
+var _ = Describe("StunnerGateway Controller", func() {
 	Context("When reconciling a resource", func() {
 		const resourceName = "test-resource"
 
@@ -40,13 +40,13 @@ var _ = Describe("StunnerIngress Controller", func() {
 			Name:      resourceName,
 			Namespace: "default", // TODO(user):Modify as needed
 		}
-		stunneringress := &cachev1alpha1.StunnerIngress{}
+		stunnergateway := &ingressv1alpha1.StunnerGateway{}
 
 		BeforeEach(func() {
-			By("creating the custom resource for the Kind StunnerIngress")
-			err := k8sClient.Get(ctx, typeNamespacedName, stunneringress)
+			By("creating the custom resource for the Kind StunnerGateway")
+			err := k8sClient.Get(ctx, typeNamespacedName, stunnergateway)
 			if err != nil && errors.IsNotFound(err) {
-				resource := &cachev1alpha1.StunnerIngress{
+				resource := &ingressv1alpha1.StunnerGateway{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
@@ -59,16 +59,16 @@ var _ = Describe("StunnerIngress Controller", func() {
 
 		AfterEach(func() {
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &cachev1alpha1.StunnerIngress{}
+			resource := &ingressv1alpha1.StunnerGateway{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("Cleanup the specific resource instance StunnerIngress")
+			By("Cleanup the specific resource instance StunnerGateway")
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 		})
 		It("should successfully reconcile the resource", func() {
 			By("Reconciling the created resource")
-			controllerReconciler := &StunnerIngressReconciler{
+			controllerReconciler := &StunnerGatewayReconciler{
 				Client: k8sClient,
 				Scheme: k8sClient.Scheme(),
 			}

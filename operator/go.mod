@@ -1,4 +1,4 @@
-module github.com/Razano26/Nebula
+module github.com/Razano26/Nebula/operator
 
 go 1.22.0
 

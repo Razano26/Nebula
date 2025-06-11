@@ -1,23 +1,27 @@
-# permissions for end users to view stunneringresses.
+# permissions for end users to edit stunnergateways.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
     app.kubernetes.io/name: operator
     app.kubernetes.io/managed-by: kustomize
-  name: stunneringress-viewer-role
+  name: stunnergateway-editor-role
 rules:
 - apiGroups:
-  - cache.my.domain
+  - ingress.nebula.io
   resources:
-  - stunneringresses
+  - stunnergateways
   verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
-  - cache.my.domain
+  - ingress.nebula.io
   resources:
-  - stunneringresses/status
+  - stunnergateways/status
   verbs:
   - get

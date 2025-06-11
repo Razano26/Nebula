@@ -24,7 +24,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/Razano26/Nebula/test/utils"
+	"github.com/Razano26/Nebula/operator/test/utils"
 )
 
 const namespace = "operator-system"

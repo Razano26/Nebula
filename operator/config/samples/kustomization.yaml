@@ -1,4 +1,4 @@
 ## Append samples of your project ##
 resources:
-- cache_v1alpha1_stunneringress.yaml
+- ingress_v1alpha1_stunnergateway.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples
