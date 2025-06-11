@@ -35,8 +35,8 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	cachev1alpha1 "github.com/Razano26/Nebula/api/v1alpha1"
-	"github.com/Razano26/Nebula/internal/controller"
+	cachev1alpha1 "github.com/Razano26/Nebula/operator/api/v1alpha1"
+	"github.com/Razano26/Nebula/operator/internal/controller"
 	// +kubebuilder:scaffold:imports
 )
 
