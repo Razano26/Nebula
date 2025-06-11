@@ -23,6 +23,7 @@ data "talos_machine_configuration" "this" {
       cluster_name   = var.cluster.proxmox_cluster
       cilium_values  = var.cilium.values
       cilium_install = var.cilium.install
+      longhorn_install = var.longhorn.install
     })
   ] : [
     templatefile("${path.module}/machine-config/worker.yaml.tftpl", {

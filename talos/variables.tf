@@ -48,3 +48,10 @@ variable "cilium" {
     install = string
   })
 }
+
+variable "longhorn" {
+  description = "Longhorn configuration"
+  type = object({
+    install = string
+  })
+}

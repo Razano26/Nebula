@@ -15,6 +15,10 @@ module "talos" {
     values = file("${path.module}/talos/inline-manifests/cilium-values.yaml")
   }
 
+  longhorn = {
+    install = file("${path.module}/talos/inline-manifests/longhorn-install.yaml")
+  }
+
   cluster = {
     name            = "talion"
     endpoint        = "162.38.112.152"
@@ -62,17 +66,5 @@ module "talos" {
       cpu           = 4
       ram_dedicated = 4096
     }
-  }
-}
-
-module "longhorn" {
-  depends_on = [
-    module.talos
-  ]
-  source = "./bootstrap/longhorn"
-
-  providers = {
-    kubernetes = kubernetes
-    helm = helm
   }
 }

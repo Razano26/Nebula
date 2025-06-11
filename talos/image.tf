@@ -33,4 +33,6 @@ resource "proxmox_virtual_environment_download_file" "this" {
   url = "${var.image.factory_url}/image/${split("_", each.key)[1]}/${split("_", each.key)[2]}/${var.image.platform}-${var.image.arch}.raw.gz"
   decompression_algorithm = "gz"
   overwrite               = false
+
+  upload_timeout = 1200
 }
