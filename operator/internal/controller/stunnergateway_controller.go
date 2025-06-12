@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"os"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -18,7 +20,6 @@ import (
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/record"
-	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -26,6 +27,9 @@ import (
 	cachev1alpha1 "github.com/Razano26/Nebula/operator/api/v1alpha1"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/cli"
+	"helm.sh/helm/v3/pkg/getter"
+	"helm.sh/helm/v3/pkg/repo"
 )
 
 // StunnerIngressReconciler reconciles a StunnerIngress object
@@ -198,10 +202,31 @@ func (r *StunnerIngressReconciler) installHelmChart(ctx context.Context, namespa
 	helmClient.Wait = true
 	helmClient.Timeout = 300 * time.Second
 
-	// Load chart
-	chartRequested, err := loader.Load(chartPath)
+	// Set up repository
+	settings := cli.New()
+
+	// Create repository entry
+	chartRepo := &repo.Entry{
+		Name: "stunner",
+		URL:  "https://l7mp.io/stunner",
+	}
+
+	// Create chart repository
+	chartRepository, err := repo.NewChartRepository(chartRepo, getter.All(settings))
 	if err != nil {
-		return fmt.Errorf("failed to load Helm chart from %s: %w", chartPath, err)
+		return fmt.Errorf("failed to create chart repository: %w", err)
+	}
+
+	// Download index file
+	indexFile, err := chartRepository.DownloadIndexFile()
+	if err != nil {
+		return fmt.Errorf("failed to download index file: %w", err)
+	}
+
+	// Load chart
+	chartRequested, err := loader.Load(indexFile)
+	if err != nil {
+		return fmt.Errorf("failed to load Helm chart: %w", err)
 	}
 
 	// Run upgrade/install
