@@ -50,7 +50,7 @@ func (r *StunnerIngressReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	namespace := stunnerIngress.Namespace
 
 	// Check if target service exists
-	targetService := &corev1.Service{}
+	targetService := &corev1.Pod{}
 	targetNamespace := stunnerIngress.Spec.Target.Namespace
 	if targetNamespace == "" {
 		targetNamespace = namespace
