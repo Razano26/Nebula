@@ -147,7 +147,7 @@ func main() {
 	if err = (&controller.StunnerIngressReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("stunneringress-controller"),
+		Recorder: mgr.GetEventRecorderFor("stunner-ingress-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "StunnerIngress")
 		os.Exit(1)
