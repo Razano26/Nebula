@@ -13,6 +13,7 @@ rules:
       - ingress.nebula.io
     resources:
       - stunneringresses
+      - stunneringresses/status
     verbs:
       - create
       - delete

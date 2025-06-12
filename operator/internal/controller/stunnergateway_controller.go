@@ -3,6 +3,8 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -15,9 +17,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"time"
 
 	cachev1alpha1 "github.com/Razano26/Nebula/operator/api/v1alpha1"
+	"k8s.io/utils/pointer"
 )
 
 // StunnerIngressReconciler reconciles a StunnerIngress object
@@ -99,6 +101,16 @@ func (r *StunnerIngressReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 						{
 							Name:  "stunner",
 							Image: "l7mp/stunner:latest", // Use appropriate Stunner image
+							SecurityContext: &corev1.SecurityContext{
+								AllowPrivilegeEscalation: pointer.Bool(false),
+								Capabilities: &corev1.Capabilities{
+									Drop: []corev1.Capability{"ALL"},
+								},
+								RunAsNonRoot: pointer.Bool(true),
+								SeccompProfile: &corev1.SeccompProfile{
+									Type: corev1.SeccompProfileTypeRuntimeDefault,
+								},
+							},
 							Ports: []corev1.ContainerPort{
 								{
 									ContainerPort: stunnerIngress.Spec.Port,
