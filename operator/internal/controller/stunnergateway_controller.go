@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"golang.org/x/tools/go/loader"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -14,28 +12,20 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/component-base/cli"
 	"os"
-	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	cachev1alpha1 "github.com/Razano26/Nebula/operator/api/v1alpha1"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
-	"helm.sh/helm/v3/pkg/cli"
-	"helm.sh/helm/v3/pkg/getter"
-	"helm.sh/helm/v3/pkg/repo"
-
-	cachev1alpha1 "github.com/Razano26/Nebula/operator/api/v1alpha1"
-	"k8s.io/utils/pointer"
 )
 
 // StunnerIngressReconciler reconciles a StunnerIngress object
@@ -94,64 +84,8 @@ func (r *StunnerIngressReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	// Create or update the Stunner Deployment
-	deployment := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("stunner-%s", stunnerIngress.Name),
-			Namespace: namespace,
-		},
-		Spec: appsv1.DeploymentSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app": fmt.Sprintf("stunner-%s", stunnerIngress.Name),
-				},
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"app": fmt.Sprintf("stunner-%s", stunnerIngress.Name),
-					},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:  "stunner",
-							Image: "l7mp/stunner:latest", // Use appropriate Stunner image
-							SecurityContext: &corev1.SecurityContext{
-								AllowPrivilegeEscalation: pointer.Bool(false),
-								Capabilities: &corev1.Capabilities{
-									Drop: []corev1.Capability{"ALL"},
-								},
-								RunAsNonRoot: pointer.Bool(true),
-								SeccompProfile: &corev1.SeccompProfile{
-									Type: corev1.SeccompProfileTypeRuntimeDefault,
-								},
-							},
-							Ports: []corev1.ContainerPort{
-								{
-									ContainerPort: stunnerIngress.Spec.Port,
-									Protocol:      getProtocol(stunnerIngress.Spec.Protocol),
-								},
-							},
-							Env: []corev1.EnvVar{
-								{
-									Name:  "STUNNER_PROTOCOL",
-									Value: stunnerIngress.Spec.Protocol,
-								},
-								{
-									Name:  "STUNNER_PORT",
-									Value: fmt.Sprintf("%d", stunnerIngress.Spec.Port),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	// Create or update the deployment
-	if err := r.createOrUpdate(ctx, deployment); err != nil {
+	err = r.installHelmChart(ctx, namespace, "https://l7mp.io/stunner/stunner", "stunner", map[string]interface{}{})
+	if err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -258,11 +192,11 @@ func (r *StunnerIngressReconciler) installHelmChart(ctx context.Context, namespa
 	}
 
 	// Create install or upgrade action
-	client := action.NewUpgrade(actionConfig)
-	client.Install = true // Upgrade if exists, install if doesn't exist
-	client.Namespace = namespace
-	client.Wait = true
-	client.Timeout = 300 * time.Second
+	helmClient := action.NewUpgrade(actionConfig)
+	helmClient.Install = true // Upgrade if exists, install if doesn't exist
+	helmClient.Namespace = namespace
+	helmClient.Wait = true
+	helmClient.Timeout = 300 * time.Second
 
 	// Load chart
 	chartRequested, err := loader.Load(chartPath)
@@ -271,7 +205,7 @@ func (r *StunnerIngressReconciler) installHelmChart(ctx context.Context, namespa
 	}
 
 	// Run upgrade/install
-	_, err = client.Run(releaseName, chartRequested, values)
+	_, err = helmClient.Run(releaseName, chartRequested, values)
 	if err != nil {
 		return fmt.Errorf("failed to install/upgrade Helm chart %s: %w", releaseName, err)
 	}
@@ -323,10 +257,6 @@ func (c *helmRESTClientGetter) ToRESTMapper() (meta.RESTMapper, error) {
 // ToRawKubeConfigLoader returns a ClientConfig
 func (c *helmRESTClientGetter) ToRawKubeConfigLoader() clientcmd.ClientConfig {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	configOverrides := &clientcmd.ConfigOverrides{
-		Context: clientcmd.Context{
-			Namespace: c.namespace,
-		},
-	}
+	configOverrides := &clientcmd.ConfigOverrides{}
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
 }
