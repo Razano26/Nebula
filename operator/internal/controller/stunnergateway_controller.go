@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"golang.org/x/tools/go/loader"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -13,10 +14,25 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/component-base/cli"
+	"os"
+	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	"helm.sh/helm/v3/pkg/action"
+	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/cli"
+	"helm.sh/helm/v3/pkg/getter"
+	"helm.sh/helm/v3/pkg/repo"
 
 	cachev1alpha1 "github.com/Razano26/Nebula/operator/api/v1alpha1"
 	"k8s.io/utils/pointer"
@@ -215,4 +231,102 @@ func (r *StunnerIngressReconciler) createOrUpdate(ctx context.Context, obj clien
 		return err
 	}
 	return nil
+}
+
+func (r *StunnerIngressReconciler) installHelmChart(ctx context.Context, namespace string, chartPath string, releaseName string, values map[string]interface{}) error {
+	logger := log.FromContext(ctx)
+	logger.Info("Installing Helm chart", "namespace", namespace, "chartPath", chartPath, "releaseName", releaseName)
+
+	// Create action configuration
+	actionConfig := new(action.Configuration)
+
+	// Get REST config from controller-runtime
+	config, err := ctrl.GetConfig()
+	if err != nil {
+		return fmt.Errorf("failed to get Kubernetes config: %w", err)
+	}
+
+	// Initialize action configuration with Kubernetes client
+	err = actionConfig.Init(
+		&helmRESTClientGetter{config: config, namespace: namespace},
+		namespace,
+		os.Getenv("HELM_DRIVER"),
+		logger.Info,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to initialize Helm action configuration: %w", err)
+	}
+
+	// Create install or upgrade action
+	client := action.NewUpgrade(actionConfig)
+	client.Install = true // Upgrade if exists, install if doesn't exist
+	client.Namespace = namespace
+	client.Wait = true
+	client.Timeout = 300 * time.Second
+
+	// Load chart
+	chartRequested, err := loader.Load(chartPath)
+	if err != nil {
+		return fmt.Errorf("failed to load Helm chart from %s: %w", chartPath, err)
+	}
+
+	// Run upgrade/install
+	_, err = client.Run(releaseName, chartRequested, values)
+	if err != nil {
+		return fmt.Errorf("failed to install/upgrade Helm chart %s: %w", releaseName, err)
+	}
+
+	logger.Info("Helm chart installed successfully", "namespace", namespace, "releaseName", releaseName)
+	return nil
+}
+
+// helmRESTClientGetter implements the genericclioptions.RESTClientGetter interface
+// which is required by Helm to interact with the Kubernetes cluster
+type helmRESTClientGetter struct {
+	config    *rest.Config
+	namespace string
+}
+
+// ToRESTConfig returns the REST client configuration
+func (c *helmRESTClientGetter) ToRESTConfig() (*rest.Config, error) {
+	return c.config, nil
+}
+
+// ToDiscoveryClient returns a discovery client
+func (c *helmRESTClientGetter) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
+	config, err := c.ToRESTConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a discovery client
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a cached discovery client
+	return memory.NewMemCacheClient(discoveryClient), nil
+}
+
+// ToRESTMapper returns a REST mapper
+func (c *helmRESTClientGetter) ToRESTMapper() (meta.RESTMapper, error) {
+	discoveryClient, err := c.ToDiscoveryClient()
+	if err != nil {
+		return nil, err
+	}
+
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
+	return mapper, nil
+}
+
+// ToRawKubeConfigLoader returns a ClientConfig
+func (c *helmRESTClientGetter) ToRawKubeConfigLoader() clientcmd.ClientConfig {
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	configOverrides := &clientcmd.ConfigOverrides{
+		Context: clientcmd.Context{
+			Namespace: c.namespace,
+		},
+	}
+	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
 }
